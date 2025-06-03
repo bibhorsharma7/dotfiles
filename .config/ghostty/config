@@ -51,3 +51,4 @@ shell-integration-features = false
 window-decoration = none
 gtk-tabs-location = hidden
 
+confirm-close-surface = false
