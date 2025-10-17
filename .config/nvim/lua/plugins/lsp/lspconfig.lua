@@ -7,7 +7,6 @@ return {
 		-- { "antosha417/nvim-lsp-file-operations", config = true },
 	},
 	config = function()
-		local lspconfig = require("lspconfig")
 		local cmp_nvim_lsp = require("cmp_nvim_lsp")
 
 		local opts = { noremap = true, silent = true }
@@ -16,31 +15,27 @@ return {
 
 			-- set keybindings
 			opts.desc = "LSP Hover Info"
-			vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+			-- vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
 
-			opts.desc = "LSP Go to defenition"
-			vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+			opts.desc = "Telescope LSP defenition"
+			-- vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+			vim.keymap.set("n", "<leader>gd", "<cmd>Telescope lsp_definitions<CR>", opts)
 
-			opts.desc = "LSP type definition"
-			vim.keymap.set("n", "gt", vim.lsp.buf.type_definition, opts)
+			-- opts.desc = "LSP type definition"
+			-- vim.keymap.set("n", "gt", vim.lsp.buf.type_definition, opts)
 
 			opts.desc = "LSP references Telescope"
-			-- vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
-			vim.keymap.set("n", "gr", "<cmd>Telescope lsp_references<CR>")
-
-			opts.desc = "LSP implementations Telescope"
-			-- vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
-			vim.keymap.set("n", "gi", "<cmd>Telescope lsp_implementations<CR>")
+			vim.keymap.set("n", "<leader>gr", "<cmd>Telescope lsp_references<CR>")
 
 			opts.desc = "LSP declaration"
-			vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
+			vim.keymap.set("n", "<leader>gD", vim.lsp.buf.declaration, opts)
 
 			-- Code Actions
-			opts.desc = "LSP Code Action"
-			vim.keymap.set({ "n", "v" }, "ga", vim.lsp.buf.code_action, opts)
+			-- opts.desc = "LSP Code Action"
+			-- vim.keymap.set({ "n", "v" }, "ga", vim.lsp.buf.code_action, opts)
 			-- Rename
-			opts.desc = "LSP rename"
-			vim.keymap.set("n", "<leader>re", vim.lsp.buf.rename, opts)
+			-- opts.desc = "LSP rename"
+			-- vim.keymap.set("n", "<leader>re", vim.lsp.buf.rename, opts)
 
 			-- Diagnostics
 			opts.desc = "Telescope diagnostics"
@@ -49,11 +44,11 @@ return {
 			opts.desc = "Open diagnostics"
 			vim.keymap.set("n", "gl", vim.diagnostic.open_float, opts)
 
-			opts.desc = "Diagnostics: go to previous"
-			vim.keymap.set("n", "<leader>gk", vim.diagnostic.goto_prev, opts)
+			-- opts.desc = "Diagnostics: go to previous"
+			-- vim.keymap.set("n", "<leader>gk", vim.diagnostic.goto_prev, opts)
 
-			opts.desc = "Diagnostics: go to next"
-			vim.keymap.set("n", "<leader>gj", vim.diagnostic.goto_next, opts)
+			-- opts.desc = "Diagnostics: go to next"
+			-- vim.keymap.set("n", "<leader>gj", vim.diagnostic.goto_next, opts)
 
 			-- -- Restart lsp
 			-- opts.desc = "Restart LSP"
@@ -76,43 +71,56 @@ return {
 		local capabilities = cmp_nvim_lsp.default_capabilities()
 
 		-- configure typescript server with plugin
-		lspconfig["ts_ls"].setup({
+		vim.lsp.config("ts_ls", {
 			capabilities = capabilities,
 			on_attach = on_attach,
 		})
+		vim.lsp.enable("ts_ls")
 
 		-- configure html lsp
-		lspconfig["html"].setup({
+		vim.lsp.config("html", {
 			capabilities = capabilities,
 			on_attach = on_attach,
 		})
+		vim.lsp.enable("html")
 
 		-- configure toml server
-		lspconfig["taplo"].setup({
+		vim.lsp.config("taplo", {
 			capabilities = capabilities,
 			on_attach = on_attach,
 		})
+		vim.lsp.enable("taplo")
+
+		-- configure go lsp server
+		vim.lsp.config("gopls", {
+			capabilities = capabilities,
+			on_attach = on_attach,
+		})
+		vim.lsp.enable("gopls")
 
 		-- configure css server
-		lspconfig["cssls"].setup({
+		vim.lsp.config("cssls", {
 			capabilities = capabilities,
 			on_attach = on_attach,
 		})
+		vim.lsp.enable("cssls")
 
 		-- configure tailwindcss server
-		lspconfig["tailwindcss"].setup({
+		vim.lsp.config("tailwindcss", {
 			capabilities = capabilities,
 			on_attach = on_attach,
 		})
+		vim.lsp.enable("tailwindcss")
 
 		-- configure python server
-		lspconfig["pyright"].setup({
+		vim.lsp.config("pyright", {
 			capabilities = capabilities,
 			on_attach = on_attach,
 		})
+		vim.lsp.enable("pyright")
 
 		-- configure lua server (with special settings)
-		lspconfig["lua_ls"].setup({
+		vim.lsp.config("lua_ls", {
 			capabilities = capabilities,
 			on_attach = on_attach,
 			settings = { -- custom settings for lua
@@ -131,8 +139,9 @@ return {
 				},
 			},
 		})
+		vim.lsp.enable("lua_ls")
 
-		lspconfig["yamlls"].setup({
+		vim.lsp.config("yamlls", {
 			capabilities = capabilities,
 			on_attach = on_attach,
 			settings = {
@@ -147,5 +156,6 @@ return {
 				},
 			},
 		})
+		vim.lsp.enable("yamlls")
 	end,
 }
