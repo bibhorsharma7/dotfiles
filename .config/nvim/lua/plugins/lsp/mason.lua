@@ -24,6 +24,7 @@ return {
 			ensure_installed = {
 				-- lsp
 				"html",
+				"gopls",
 				"cssls",
 				"lua_ls",
 				"taplo", -- toml
@@ -31,6 +32,7 @@ return {
 				"pyright",
 				"ts_ls",
 				"tailwindcss",
+				"terraformls",
 			},
 
 			-- auto-install configured servers (with lspconfig)
@@ -67,6 +69,7 @@ return {
 				-- formatter
 				"isort", -- python
 				"black", -- python
+				"gofumpt", -- go
 				"stylua",
 				"prettierd",
 				-- linter

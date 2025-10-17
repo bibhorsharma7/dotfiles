@@ -16,6 +16,7 @@ return {
 			formatters_by_ft = {
 				lua = { "stylua" },
 				python = { "isort", "black" }, -- runs isort first then black
+				go = { "gofumpt" },
 
 				javascript = { "prettierd" },
 				typescript = { "prettierd" },
