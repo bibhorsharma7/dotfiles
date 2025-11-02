@@ -1,7 +1,10 @@
 # Config files
 
 ## Use stow
-```stow .```
+```
+# Only link files and not directories
+stow --no-folding .
+```
 
 ## script
 for tmux plugin manager
