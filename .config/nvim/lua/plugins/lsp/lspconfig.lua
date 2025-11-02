@@ -33,9 +33,10 @@ return {
 			-- Code Actions
 			-- opts.desc = "LSP Code Action"
 			-- vim.keymap.set({ "n", "v" }, "ga", vim.lsp.buf.code_action, opts)
+
 			-- Rename
-			-- opts.desc = "LSP rename"
-			-- vim.keymap.set("n", "<leader>re", vim.lsp.buf.rename, opts)
+			opts.desc = "LSP rename"
+			vim.keymap.set("n", "<leader>re", vim.lsp.buf.rename, opts)
 
 			-- Diagnostics
 			opts.desc = "Telescope diagnostics"
