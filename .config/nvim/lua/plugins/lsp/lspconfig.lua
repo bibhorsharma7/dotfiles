@@ -14,17 +14,18 @@ return {
 			opts.buffer = bufnr
 
 			-- set keybindings
-			opts.desc = "LSP Hover Info"
+			-- opts.desc = "LSP Hover Info"
 			-- vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
 
-			opts.desc = "Telescope LSP defenition"
+			opts.desc = "Telescope LSP defenitions"
 			-- vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
 			vim.keymap.set("n", "<leader>gd", "<cmd>Telescope lsp_definitions<CR>", opts)
 
-			-- opts.desc = "LSP type definition"
+			opts.desc = "Telescope LSP type definitions"
 			-- vim.keymap.set("n", "gt", vim.lsp.buf.type_definition, opts)
+			vim.keymap.set("n", "<leader>gt", "<cmd>Telescope lsp_type_definitions<CR>", opts)
 
-			opts.desc = "LSP references Telescope"
+			opts.desc = "Telescope LSP references"
 			vim.keymap.set("n", "<leader>gr", "<cmd>Telescope lsp_references<CR>")
 
 			opts.desc = "LSP declaration"
@@ -45,11 +46,11 @@ return {
 			opts.desc = "Open diagnostics"
 			vim.keymap.set("n", "gl", vim.diagnostic.open_float, opts)
 
-			-- opts.desc = "Diagnostics: go to previous"
-			-- vim.keymap.set("n", "<leader>gk", vim.diagnostic.goto_prev, opts)
+			opts.desc = "Diagnostics: go to previous"
+			vim.keymap.set("n", "<leader>gp", vim.diagnostic.goto_prev, opts)
 
-			-- opts.desc = "Diagnostics: go to next"
-			-- vim.keymap.set("n", "<leader>gj", vim.diagnostic.goto_next, opts)
+			opts.desc = "Diagnostics: go to next"
+			vim.keymap.set("n", "<leader>gn", vim.diagnostic.goto_next, opts)
 
 			-- -- Restart lsp
 			-- opts.desc = "Restart LSP"
