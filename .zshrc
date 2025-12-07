@@ -105,6 +105,7 @@ source $ZSH/oh-my-zsh.sh
 alias ls='ls --group-directories-first --color=tty'
 alias python='python3'
 alias py='python3'
+alias rgf='rg --files | rg'
 
 # For electron applications
 export ELECTRON_OZONE_PLATFORM_HINT=auto
