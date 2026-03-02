@@ -1,6 +1,5 @@
 return {
 	"nvim-telescope/telescope.nvim",
-	branch = "0.1.x",
 	dependencies = {
 		"nvim-lua/plenary.nvim",
 		"nvim-tree/nvim-web-devicons",
@@ -8,7 +7,7 @@ return {
 
 	config = function()
 		local telescope = require("telescope")
-		local actions = require("telescope.actions")
+		-- local actions = require("telescope.actions")
 
 		telescope.setup({
 			defaults = {
