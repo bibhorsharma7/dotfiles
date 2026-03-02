@@ -103,13 +103,22 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 alias ls='ls --group-directories-first --color=tty'
-alias python='python3'
-alias py='python3'
 alias rgf='rg --files | rg'
 
 # For electron applications
 export ELECTRON_OZONE_PLATFORM_HINT=auto
 
 # for tmux sessionizer
-export PATH=/home/bibhors/.local/bin:$PATH
+export PATH=$HOME/.local/bin:$PATH
 alias ts=tmux-sessionizer
+
+# node version manager NVM
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+# Go packages
+export PATH=$HOME/go/bin:$PATH
+
+# Cargo packages
+export PATH=$HOME/.cargo/bin:$PATH
