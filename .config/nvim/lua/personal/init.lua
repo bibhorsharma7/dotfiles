@@ -46,17 +46,13 @@ vim.keymap.set("n", "<leader>y", '"+y')
 vim.keymap.set("v", "<leader>y", '"+y')
 vim.keymap.set("n", "<leader>Y", '"+Y')
 
--- quick fix navigation
--- vim.keymap.set("n", "<C-j>", "<cmd>cnext<CR>zz")
--- vim.keymap.set("n", "<C-k>", "<cmd>cprev<CR>zz")
+-- quickfix list navigation
+vim.keymap.set("n", "<C-j>", "<cmd>cnext<CR>zz")
+vim.keymap.set("n", "<C-k>", "<cmd>cprev<CR>zz")
+
+-- location list navigation
 -- vim.keymap.set("n", "<leader>j", "<cmd>lnext<CR>zz")
 -- vim.keymap.set("n", "<leader>k", "<cmd>lprev<CR>zz")
 
 -- replace all under cursor
 vim.keymap.set("n", "<leader>ra", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]], { desc = "Replace all" })
-
--- cycle through buffers
-vim.keymap.set("n", "<leader><tab>", "<cmd>bnext<CR>")
-vim.keymap.set("n", "<leader><S-tab>", "<cmd>bprev<CR>")
--- close buffer
-vim.keymap.set("n", "<leader>q", "<cmd>bdelete<CR><cmd>buffer<CR>")
