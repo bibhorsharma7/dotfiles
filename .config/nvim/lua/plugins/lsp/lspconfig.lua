@@ -32,8 +32,8 @@ return {
 			vim.keymap.set("n", "<leader>gD", vim.lsp.buf.declaration, opts)
 
 			-- Code Actions
-			-- opts.desc = "LSP Code Action"
-			-- vim.keymap.set({ "n", "v" }, "ga", vim.lsp.buf.code_action, opts)
+			opts.desc = "LSP Code Action"
+			vim.keymap.set({ "n", "v" }, "<leader>ga", vim.lsp.buf.code_action, opts)
 
 			-- Rename
 			opts.desc = "LSP rename"

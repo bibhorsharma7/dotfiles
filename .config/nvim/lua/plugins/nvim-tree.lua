@@ -25,7 +25,11 @@ return {
 
 			-- disable window_picker for explorer to work well with window splits
 			actions = {
+				change_dir = {
+					restrict_above_cwd = true,
+				},
 				open_file = {
+					quit_on_open = true,
 					window_picker = {
 						enable = false,
 					},
