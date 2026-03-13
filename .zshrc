@@ -70,7 +70,7 @@ ZSH_THEME="robbyrussell"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git)
+plugins=(git aws terraform nvm dnf systemd)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -111,11 +111,6 @@ export ELECTRON_OZONE_PLATFORM_HINT=auto
 # for tmux sessionizer
 export PATH=$HOME/.local/bin:$PATH
 alias ts=tmux-sessionizer
-
-# node version manager NVM
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # Go packages
 export PATH=$HOME/go/bin:$PATH
