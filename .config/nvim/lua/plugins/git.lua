@@ -7,9 +7,6 @@ return {
 		opts = {
 			current_line_blame = true,
 		},
-		keys = {
-			{ "<leader>gb", "<cmd>Gitsigns blame<CR>", desc = "Open git blame" },
-		},
 	},
 
 	-- Fugitive

@@ -10,40 +10,26 @@ return {
 		local cmp_nvim_lsp = require("cmp_nvim_lsp")
 
 		local opts = { noremap = true, silent = true }
-		local on_attach = function(client, bufnr)
+		local on_attach = function(_, bufnr)
 			opts.buffer = bufnr
 
-			-- set keybindings
-			-- opts.desc = "LSP Hover Info"
-			-- vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
-
-			opts.desc = "Telescope LSP defenitions"
-			-- vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
-			vim.keymap.set("n", "<leader>gd", "<cmd>Telescope lsp_definitions<CR>", opts)
-
-			opts.desc = "Telescope LSP type definitions"
-			-- vim.keymap.set("n", "gt", vim.lsp.buf.type_definition, opts)
-			vim.keymap.set("n", "<leader>gt", "<cmd>Telescope lsp_type_definitions<CR>", opts)
-
-			opts.desc = "Telescope LSP references"
-			vim.keymap.set("n", "<leader>gr", "<cmd>Telescope lsp_references<CR>")
+			opts.desc = "LSP defenition"
+			vim.keymap.set("n", "grd", vim.lsp.buf.definition, opts)
 
 			opts.desc = "LSP declaration"
-			vim.keymap.set("n", "<leader>gD", vim.lsp.buf.declaration, opts)
+			vim.keymap.set("n", "grD", vim.lsp.buf.declaration, opts)
 
-			-- Code Actions
-			opts.desc = "LSP Code Action"
-			vim.keymap.set({ "n", "v" }, "<leader>ga", vim.lsp.buf.code_action, opts)
+			opts.desc = "Telescope LSP references"
+			vim.keymap.set("n", "grr", "<cmd>Telescope lsp_references<CR>", opts)
 
-			-- Rename
-			opts.desc = "LSP rename"
-			vim.keymap.set("n", "<leader>re", vim.lsp.buf.rename, opts)
+			opts.desc = "Telescope LSP implementations"
+			vim.keymap.set("n", "gri", "<cmd>Telescope lsp_implementations<CR>", opts)
 
 			-- Diagnostics
-			opts.desc = "Telescope diagnostics"
-			vim.keymap.set("n", "<leader>G", "<cmd>Telescope diagnostics bufnr=0<CR>", opts)
+			opts.desc = "Telescope list diagnostics in file"
+			vim.keymap.set("n", "<leader>gg", "<cmd>Telescope diagnostics bufnr=0<CR>", opts)
 
-			opts.desc = "Open diagnostics"
+			opts.desc = "Open flaot diagnostic"
 			vim.keymap.set("n", "gl", vim.diagnostic.open_float, opts)
 
 			opts.desc = "Diagnostics: go to previous"
@@ -51,10 +37,6 @@ return {
 
 			opts.desc = "Diagnostics: go to next"
 			vim.keymap.set("n", "<leader>gn", vim.diagnostic.goto_next, opts)
-
-			-- -- Restart lsp
-			-- opts.desc = "Restart LSP"
-			-- vim.keymap.set("n", "<leader>rs", ":LspRestart<CR>", opts)
 		end
 
 		-- Diagnostic Signs

@@ -19,7 +19,6 @@ return {
 	keys = {
 		{ "<leader>ff", "<cmd>Telescope find_files<cr>", desc = "Find files" },
 		{ "<leader>fs", "<cmd>Telescope live_grep<cr>", desc = "Search in files" },
-		{ "<leader>fd", "<cmd>Telescope lsp_document_symbols<cr>", desc = "Find files" },
-		{ "<leader>fw", "<cmd>Telescope lsp_workspace_symbols<cr>", desc = "Find files" },
+		{ "<leader>fw", "<cmd>Telescope grep_string<cr>", desc = "Search in files" },
 	},
 }

@@ -56,3 +56,15 @@ vim.keymap.set("n", "<C-k>", "<cmd>cprev<CR>zz")
 
 -- replace all under cursor
 vim.keymap.set("n", "<leader>ra", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]], { desc = "Replace all" })
+
+-- Key mappings for plugins
+
+-- git blame
+vim.keymap.set("n", "<leader>gb", "<cmd>Gitsigns blame<CR>", { desc = "Open git blame" })
+-- buffer tab navigation
+vim.keymap.set("n", "<leader><tab>", "<cmd>bnext<CR>")
+vim.keymap.set("n", "<leader><S-tab>", "<cmd>bprev<CR>")
+vim.keymap.set("n", "<leader>q", "<cmd>bdelete<CR><cmd>buffer<CR>")
+
+-- undotree
+vim.keymap.set("n", "<leader>u", vim.cmd.UndotreeToggle, { desc = "Undo Tree Toggle" })

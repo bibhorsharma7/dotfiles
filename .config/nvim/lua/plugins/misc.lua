@@ -4,19 +4,14 @@ return {
 		"akinsho/bufferline.nvim",
 		event = { "BufReadPre", "BufNewFile" },
 		dependencies = { "nvim-tree/nvim-web-devicons" },
-		config = true,
-		keys = {
-			{ "<leader><tab>", "<cmd>bnext<CR>" },
-			{ "<leader><S-tab>", "<cmd>bprev<CR>" },
-			{ "<leader>q", "<cmd>bdelete<CR><cmd>buffer<CR>" },
-		},
+		opts = {},
 	},
 
 	-- render markdown
 	{
 		"MeanderingProgrammer/render-markdown.nvim",
 		dependencies = { "nvim-treesitter/nvim-treesitter", "nvim-tree/nvim-web-devicons" }, -- "echasnovski/mini.icons"
-		config = true,
+		opts = {},
 	},
 
 	-- maximize current pane with F3
@@ -29,16 +24,13 @@ return {
 	{
 		"echasnovski/mini.surround",
 		version = "*", -- use stable release version/tag
-		config = true,
+		opts = {},
 	},
 
 	-- undotree
 	{
 		"mbbill/undotree",
 		event = { "BufReadPre", "BufNewFile" },
-		keys = {
-			{ "<leader>u", vim.cmd.UndotreeToggle, desc = "Undo Tree Toggle" },
-		},
 	},
 
 	-- whichkey -- shows keybinds info on keypress
