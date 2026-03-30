@@ -70,7 +70,7 @@ ZSH_THEME="robbyrussell"
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git aws terraform nvm dnf systemd)
+plugins=(git aws terraform nvm dnf systemd bun)
 
 source $ZSH/oh-my-zsh.sh
 
@@ -117,3 +117,7 @@ export PATH=$HOME/go/bin:$PATH
 
 # Cargo packages
 export PATH=$HOME/.cargo/bin:$PATH
+
+# bun path
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
