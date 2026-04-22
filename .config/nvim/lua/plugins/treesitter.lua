@@ -1,45 +1,49 @@
 return {
 	"nvim-treesitter/nvim-treesitter",
+	branch = "master",
 	lazy = false,
 	build = ":TSUpdate",
 	config = function()
-		local treesitter = require("nvim-treesitter")
+		local treesitter = require("nvim-treesitter.configs")
 
-		local parsers = {
-			"lua",
-			"tsx",
-			"css",
-			"html",
-			"yaml",
-			"json",
-			"toml",
-			"bash",
-			"zsh",
-			"markdown",
-			"javascript",
-			"typescript",
-			"markdown_inline",
-			"vim",
-			"prisma",
-			"svelte",
-			"graphql",
-			"dockerfile",
-			"gitignore",
-			"go",
-		}
-		treesitter.install(parsers)
+		treesitter.setup({
+			-- syntax highlighting
+			highlight = {
+				enable = true,
+				additional_vim_regex_highlighting = false,
+			},
 
-		-- register parser with treesitter, and start parser for file
-		for _, parser in ipairs(parsers) do
-			local fileType = parser -- parser name is usually the fileType
-			vim.treesitter.language.register(parser, fileType)
+			indent = { enable = true },
 
-			vim.api.nvim_create_autocmd({ "FileType" }, {
-				pattern = fileType,
-				callback = function(event)
-					vim.treesitter.start(event.buf, parser)
-				end,
-			})
-		end
+			-- Install parsers synchronously (only applied to `ensure_installed`)
+			sync_install = false,
+
+			-- Automatically install missing parsers when entering buffer
+			-- Recommendation: set to false if you don't have `tree-sitter` CLI installed locally
+			auto_install = true,
+
+			-- ensure these language parsers are installed
+			ensure_installed = {
+				"lua",
+				"tsx",
+				"css",
+				"html",
+				"yaml",
+				"json",
+				"bash",
+				"markdown",
+				"javascript",
+				"typescript",
+				"markdown_inline",
+				"vim",
+				"prisma",
+				"svelte",
+				"graphql",
+				"dockerfile",
+				"gitignore",
+				"toml",
+				"go",
+			},
+		})
 	end,
 }
