@@ -23,7 +23,6 @@ vim.opt.scrolloff = 4
 -- vim.opt.colorcolumn = "80"
 
 -- Keybinds
-vim.keymap.set("i", "hn", "<Esc>")
 
 -- Move lines with J and K on selection mode
 vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
