@@ -54,12 +54,6 @@ return {
 		},
 	},
 
-	-- GitHub Copilot
-	{
-		"github/copilot.vim",
-		enabled = false,
-	},
-
 	-- Harpoon -- mark files for quick switch
 	{
 		"ThePrimeagen/harpoon",
