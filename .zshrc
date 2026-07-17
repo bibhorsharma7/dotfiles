@@ -112,15 +112,8 @@ export ELECTRON_OZONE_PLATFORM_HINT=auto
 export PATH=$HOME/.local/bin:$PATH
 alias ts=tmux-sessionizer
 
-# Go packages
+# bins
 export PATH=$HOME/go/bin:$PATH
-
-# Cargo packages
 export PATH=$HOME/.cargo/bin:$PATH
-
-# bun path
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
-
-# opencode
-export PATH=/home/bibhors/.opencode/bin:$PATH
+export PATH=$HOME/.bun/bin:$PATH
+export PATH=$HOME/.opencode/bin:$PATH
