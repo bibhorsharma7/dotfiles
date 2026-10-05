@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+# The session, worktree and agent tree inside a tmux-sidebar pane.
+# Agent states come from the @agent_state pane option that tmux-agent-state sets.
+
+import curses
+import locale
+import os
+import subprocess
+import time
+
+AGENT_COMMANDS = {"claude", "pi"}
+STATE_COLOR = {"waiting": 1, "working": 2, "idle": 3, "unknown": 4}
+CURRENT = 5
+FIELDS = [
+    "session_id", "session_name", "session_attached", "window_id", "window_index",
+    "window_active", "pane_id", "pane_index", "pane_active",
+    "@sidebar", "@agent_state", "@agent_kind", "pane_current_command", "pane_current_path",
+]
+FORMAT = "\t".join("#{%s}" % f for f in FIELDS)
+ME = os.environ.get("TMUX_PANE")
+GIT_TTL = 5
+
+
+def tmux(*args):
+    return subprocess.run(["tmux", *args], capture_output=True, text=True).stdout
+
+
+git_cache = {}
+
+
+def git_info(path):
+    """Branch, worktree root, and whether it is a linked worktree. Cached, because every pane asks every second."""
+    hit = git_cache.get(path)
+    if hit and time.monotonic() - hit[0] < GIT_TTL:
+        return hit[1]
+    out = subprocess.run(
+        ["git", "-C", path, "rev-parse", "--path-format=absolute",
+         "--abbrev-ref", "HEAD", "--git-dir", "--git-common-dir", "--show-toplevel"],
+        capture_output=True, text=True,
+    ).stdout.split("\n")
+    info = None
+    if len(out) >= 4 and out[0]:
+        info = {"branch": out[0], "linked": out[1] != out[2], "root": out[3]}
+    git_cache[path] = (time.monotonic(), info)
+    return info
+
+
+def poll():
+    sessions, me = {}, None
+    for line in tmux("list-panes", "-a", "-F", FORMAT).splitlines():
+        f = dict(zip(FIELDS, line.split("\t")))
+        if f["pane_id"] == ME:
+            me = {
+                "session": f["session_id"],
+                "visible": f["window_active"] == "1" and f["session_attached"] != "0",
+                "focused": f["window_active"] == "1" and f["pane_active"] == "1",
+            }
+        s = sessions.setdefault(f["session_id"], {"id": f["session_id"], "name": f["session_name"], "panes": []})
+        if f["@sidebar"] == "1":
+            continue
+        state, kind = f["@agent_state"], f["@agent_kind"]
+        # An agent that started before its hooks existed has no state until its next event.
+        if not state and f["pane_current_command"] in AGENT_COMMANDS:
+            state, kind = "unknown", f["pane_current_command"]
+        agent = None
+        # A state outlives a crashed agent, so it counts only while the agent still runs.
+        if state in STATE_COLOR and f["pane_current_command"] in AGENT_COMMANDS:
+            agent = {"pane": f["pane_id"], "kind": kind, "state": state}
+        s["panes"].append({
+            "pane": f["pane_id"], "path": f["pane_current_path"], "agent": agent,
+            "order": (int(f["window_index"]), int(f["pane_index"])),
+        })
+    # The order of prefix+w (choose-tree -O index): sessions by creation, then windows and panes by index.
+    ordered = sorted(sessions.values(), key=lambda s: int(s["id"].lstrip("$")))
+    for s in ordered:
+        s["panes"].sort(key=lambda p: p["order"])
+    return ordered, me
+
+
+def agent_row(agent, indent):
+    return {"kind": "agent", "target": agent["pane"], "state": agent["state"],
+            "text": agent["kind"], "indent": indent}
+
+
+def build_rows(sessions, me):
+    rows = []
+    for s in sessions:
+        branch, agents, worktrees = None, [], {}
+        for p in s["panes"]:
+            git = git_info(p["path"])
+            if git and git["linked"]:
+                wt = worktrees.setdefault(git["root"], {"branch": git["branch"], "target": p["pane"], "agents": []})
+                if p["agent"]:
+                    wt["agents"].append(p["agent"])
+                continue
+            if git and branch is None:
+                branch = git["branch"]
+            if p["agent"]:
+                agents.append(p["agent"])
+        rows.append({"kind": "session", "target": s["id"], "text": s["name"], "branch": branch,
+                     "current": s["id"] == me["session"], "indent": 1})
+        rows += [agent_row(a, 3) for a in agents]
+        for wt in worktrees.values():
+            rows.append({"kind": "worktree", "target": wt["target"], "text": "⎇ " + wt["branch"], "indent": 3})
+            rows += [agent_row(a, 5) for a in wt["agents"]]
+    return rows
+
+
+def put(scr, y, x, text, attr=0):
+    h, w = scr.getmaxyx()
+    if 0 <= y < h and x < w - 1:
+        try:
+            scr.addnstr(y, x, text, w - 1 - x, attr)
+        except curses.error:
+            pass
+
+
+def draw(scr, rows, me, cursor, top):
+    scr.erase()
+    h, w = scr.getmaxyx()
+    for y, row in enumerate(rows[top:top + h]):
+        i = top + y
+        x = row["indent"]
+        base = 0
+        if row.get("current"):
+            base = curses.color_pair(CURRENT) | curses.A_BOLD
+        if me["focused"] and i == cursor:
+            base = curses.A_REVERSE | curses.A_BOLD
+        if base:
+            put(scr, y, 0, " " * w, base)
+        dim = base or curses.A_DIM
+        if row["kind"] == "session":
+            put(scr, y, x, row["text"], base | curses.A_BOLD)
+            branch = row["branch"]
+            if branch and w - 1 - len(branch) > x + len(row["text"]) + 1:
+                put(scr, y, w - 1 - len(branch), branch, dim)
+        elif row["kind"] == "worktree":
+            put(scr, y, x, row["text"], base)
+        else:
+            put(scr, y, x, "●", base | curses.color_pair(STATE_COLOR[row["state"]]))
+            put(scr, y, x + 2, row["text"], dim)
+    scr.refresh()
+
+
+def jump(row):
+    t = row["target"]
+    if row["kind"] == "session":
+        tmux("switch-client", "-t", t)
+    else:
+        tmux("switch-client", "-t", t, ";", "select-window", "-t", t, ";", "select-pane", "-t", t)
+
+
+def leave():
+    if subprocess.run(["tmux", "last-pane"], capture_output=True).returncode:
+        tmux("select-pane", "-R")
+
+
+def main(scr):
+    curses.curs_set(0)
+    curses.use_default_colors()
+    gray = 8 if curses.COLORS > 8 else curses.COLOR_WHITE
+    curses.init_pair(1, curses.COLOR_RED, -1)
+    curses.init_pair(2, curses.COLOR_YELLOW, -1)
+    curses.init_pair(3, curses.COLOR_CYAN, -1)
+    curses.init_pair(4, gray, -1)
+    curses.init_pair(CURRENT, curses.COLOR_BLACK, curses.COLOR_YELLOW)
+    curses.mousemask(curses.BUTTON1_PRESSED | curses.BUTTON1_CLICKED)
+    curses.mouseinterval(0)
+
+    cursor = None
+    top = 0
+    agents_seen = None
+    while True:
+        sessions, me = poll()
+        if me is None:
+            return
+        # tmux-sidebar wake sends a key when this window comes on screen.
+        scr.timeout(1000 if me["visible"] else 30000)
+        if not me["visible"]:
+            scr.getch()
+            continue
+
+        agents = sorted((p["agent"]["pane"], p["agent"]["state"]) for s in sessions for p in s["panes"] if p["agent"])
+        if agents != agents_seen:
+            subprocess.run([os.path.expanduser("~/.local/bin/tmux-agent-state"), "--summary"])
+            agents_seen = agents
+
+        rows = build_rows(sessions, me)
+        current = next((i for i, r in enumerate(rows) if r.get("current")), 0)
+        if cursor is None or not me["focused"]:
+            cursor = current
+        cursor = max(0, min(cursor, len(rows) - 1))
+        h = scr.getmaxyx()[0]
+        if cursor < top:
+            top = cursor
+        elif cursor >= top + h:
+            top = cursor - h + 1
+        draw(scr, rows, me, cursor, top)
+
+        key = scr.getch()
+        if key in (ord("j"), curses.KEY_DOWN):
+            cursor += 1
+        elif key in (ord("k"), curses.KEY_UP):
+            cursor -= 1
+        elif key in (10, 13, curses.KEY_ENTER) and rows:
+            jump(rows[cursor])
+        elif key in (27, ord("q")):
+            leave()
+        elif key == curses.KEY_MOUSE:
+            try:
+                y = curses.getmouse()[2]
+            except curses.error:
+                continue
+            if 0 <= top + y < len(rows):
+                cursor = top + y
+                jump(rows[cursor])
+
+
+if __name__ == "__main__":
+    os.environ.setdefault("ESCDELAY", "25")
+    locale.setlocale(locale.LC_ALL, "")
+    curses.wrapper(main)

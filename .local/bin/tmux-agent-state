@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+# Agent hook: tmux-agent-state <agent> [event] [session-file]
+# Claude Code sends the event as JSON on stdin. pi sends it as arguments, and its stdin
+# can be the terminal, so never read stdin when the event argument is set.
+# Stay silent: Claude Code adds the stdout of some hooks to the model context.
+#
+#   tmux-agent-state --summary   recount the status-bar summary
+#   tmux-agent-state --save      resurrect post-save hook: record each agent's resume command
+#   tmux-agent-state --restore   resurrect post-restore hook: start those commands again
+#   tmux-agent-state --install   add the Claude Code hooks to its settings.json
+
+summary() {
+    local s
+    s=$(tmux list-panes -a -F '#{@agent_state} #{pane_current_command}' | awk '
+        $2 != "claude" && $2 != "pi" { next }
+        $1 == "waiting" { w++ }
+        $1 == "working" { r++ }
+        $1 == "idle"    { i++ }
+        END {
+            if (w) printf "#[fg=#eb6f92]● %d ", w
+            if (r) printf "#[fg=#f6c177]● %d ", r
+            if (i) printf "#[fg=#9ccfd8]● %d ", i
+        }')
+    tmux set -g @agent_summary "$s" \; refresh-client -S 2>/dev/null
+}
+
+agents_file() {
+    source ~/.config/tmux/plugins/tmux-resurrect/scripts/helpers.sh
+    echo "$(readlink -f "$(last_resurrect_file)").agents"
+}
+
+install() {
+    local settings=${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json tmp
+    [[ -s $settings ]] || echo '{}' >"$settings"
+    tmp=$(mktemp) || return 1
+    jq --arg cmd '~/.local/bin/tmux-agent-state claude' '
+        def add($event; $matcher):
+            .hooks[$event] = ((.hooks[$event] // [])
+                | map(.hooks |= map(select(.command != $cmd)))
+                | map(select(.hooks | length > 0)))
+                + [{hooks: [{type: "command", command: $cmd, timeout: 5}]}
+                   + (if $matcher then {matcher: $matcher} else {} end)];
+        .hooks //= {}
+        | add("SessionStart"; null)
+        | add("UserPromptSubmit"; null)
+        | add("PostToolUse"; null)
+        | add("Notification"; "permission_prompt|elicitation_dialog|idle_prompt")
+        | add("PermissionDenied"; null)
+        | add("Stop"; null)
+        | add("SessionEnd"; null)
+    ' "$settings" >"$tmp" && cat "$tmp" >"$settings"
+    local status=$?
+    rm -f "$tmp"
+    return $status
+}
+
+case $1 in
+--install)
+    install && echo "Added the tmux-agent-state hooks to ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
+    exit
+    ;;
+--summary)
+    summary
+    exit 0
+    ;;
+--save)
+    tmux list-panes -a -F '#{session_name}	#{window_index}	#{pane_index}	#{pane_current_command}	#{@agent_resume_cmd}' |
+        awk -F'\t' '($4 == "claude" || $4 == "pi") && $5 != "" { print $1 ":" $2 "." $3 "\t" $5 }' >"$(agents_file)"
+    exit 0
+    ;;
+--restore)
+    file=$(agents_file)
+    [[ -r $file ]] || exit 0
+    while IFS=$'\t' read -r target cmd; do
+        case $(tmux display -p -t "$target" '#{pane_current_command}' 2>/dev/null) in
+            zsh | bash | sh | fish) tmux send-keys -t "$target" "$cmd" Enter ;;
+        esac
+    done <"$file"
+    exit 0
+    ;;
+esac
+
+agent=$1
+event=$2
+session=$3
+notification=
+if [[ -z $event ]]; then
+    IFS=$'\x1f' read -r event notification session < <(
+        jq -r '[.hook_event_name // "", .notification_type // "", .session_id // ""] | join("\u001f")' 2>/dev/null)
+fi
+
+load_tmux_env() {
+    local var
+    while IFS= read -r -d '' var; do
+        case $var in
+            TMUX=*) export TMUX=${var#TMUX=} ;;
+            TMUX_PANE=*) export TMUX_PANE=${var#TMUX_PANE=} ;;
+        esac
+    done </proc/"$1"/environ 2>/dev/null
+    [[ -n $TMUX_PANE ]]
+}
+
+# A Claude Code background session runs under a pty host without the tmux variables.
+# The host's arguments name the socket that the claude client in the pane connects to,
+# and that client has the pane in its environment.
+pane_of_pty_host() {
+    local pid=$PPID args sock= peer client
+    while [[ $pid -gt 1 ]]; do
+        args=$(tr '\0' ' ' </proc/"$pid"/cmdline 2>/dev/null)
+        if [[ $args == *--bg-pty-host\ * ]]; then
+            sock=${args#*--bg-pty-host }
+            sock=${sock%% *}
+            break
+        fi
+        pid=$(awk '/^PPid:/ { print $2 }' /proc/"$pid"/status 2>/dev/null)
+        pid=${pid:-1}
+    done
+    [[ -n $sock ]] || return 1
+    for peer in $(ss -xH | awk -v s="$sock" '$5 == s && $8 != "*" && $8 != 0 { print $8 }'); do
+        client=$(ss -xpH | awk -v i="$peer" '$6 == i && match($0, /pid=[0-9]+/) { print substr($0, RSTART + 4, RLENGTH - 4); exit }')
+        [[ -n $client ]] && load_tmux_env "$client" && return 0
+    done
+    return 1
+}
+
+[[ -n $TMUX_PANE ]] || pane_of_pty_host || exit 0
+
+pane=(-p -t "$TMUX_PANE")
+get() { tmux show -v "${pane[@]}" "$1" 2>/dev/null; }
+
+case $event in
+    SessionStart | Stop | session_start | agent_settled)
+        state=idle ;;
+    UserPromptSubmit | PostToolUse | PermissionDenied | agent_start)
+        state=working ;;
+    Notification)
+        case $notification in
+            idle_prompt) state=idle ;;
+            permission_prompt | elicitation_dialog) state=waiting ;;
+            *) exit 0 ;;
+        esac ;;
+    ui_prompt_start)
+        open=$(get @agent_prompts)
+        if (( ${open:-0} == 0 )); then
+            before=$(get @agent_state)
+            tmux set "${pane[@]}" @agent_prompt_state "${before:-idle}"
+        fi
+        tmux set "${pane[@]}" @agent_prompts $(( ${open:-0} + 1 ))
+        state=waiting ;;
+    ui_prompt_end)
+        open=$(( $(get @agent_prompts || echo 0) - 1 ))
+        (( open < 0 )) && open=0
+        tmux set "${pane[@]}" @agent_prompts "$open"
+        (( open > 0 )) && exit 0
+        state=$(get @agent_prompt_state)
+        state=${state:-idle} ;;
+    SessionEnd | session_shutdown)
+        state= ;;
+    *)
+        exit 0 ;;
+esac
+
+if [[ -n $state ]]; then
+    resume=
+    case $agent in
+        claude) [[ -n $session ]] && resume="claude --resume $session" ;;
+        pi) [[ -n $session ]] && resume="pi --session $session" ;;
+    esac
+    tmux set "${pane[@]}" @agent_state "$state" \; set "${pane[@]}" @agent_kind "$agent"
+    [[ -n $resume ]] && tmux set "${pane[@]}" @agent_resume_cmd "$resume"
+else
+    for option in @agent_state @agent_kind @agent_resume_cmd @agent_prompts @agent_prompt_state; do
+        tmux set -u "${pane[@]}" "$option"
+    done
+fi
+
+summary
+exit 0

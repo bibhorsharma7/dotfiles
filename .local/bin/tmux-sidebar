@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+# tmux-sidebar <command> [args]: an agent sidebar pane on the left of every window.
+#   sync                     add a sidebar to every window that has none
+#   add <window>             add a sidebar to one window
+#   toggle                   turn sidebars on or off in every window
+#   off                      turn sidebars off and close them
+#   focus <window>           move focus into the sidebar
+#   nav <L|R|U|D> <window>   select-pane that never stops on the sidebar
+#   even <window>            give the other panes even sizes
+#   without <window> <cmd>   run a command while the sidebar is out of the window
+#   tidy                     close sidebar-only windows, dock moved sidebars, set widths back
+#   wake                     redraw the sidebars that are on screen
+#   restore [file]           turn the panes that resurrect restored as sidebars back into sidebars
+
+width=$(tmux show -gv @sidebar_width 2>/dev/null)
+width=${width:-20}
+ui="$HOME/.local/bin/tmux-sidebar-ui"
+
+sidebar_of() {
+    tmux list-panes -t "$1" -F '#{pane_id} #{@sidebar}' 2>/dev/null | awk '$2 == 1 { print $1; exit }'
+}
+
+enabled() {
+    [[ $(tmux show -gv @sidebar_enabled 2>/dev/null) == 1 ]]
+}
+
+# Set while without moves a sidebar out of its window and back.
+busy() {
+    [[ $(tmux show -gv @sidebar_busy 2>/dev/null) == 1 ]]
+}
+
+mark() {
+    tmux set -p -t "$1" @sidebar 1 \; select-pane -t "$1" -T agents
+}
+
+add() {
+    local win=$1 pane
+    enabled && ! busy || return
+    [[ $(tmux display -p -t "$win" '#{session_name}') != float ]] || return
+    [[ -z $(sidebar_of "$win") ]] || return
+    pane=$(tmux split-window -d -fhb -l "$width" -t "$win" -P -F '#{pane_id}' "$ui") || return
+    mark "$pane"
+}
+
+sync() {
+    local win
+    enabled && ! busy || return
+    tmux list-panes -a -F '#{window_id} #{@sidebar}' |
+        awk '{ seen[$1] = 1 } $2 == 1 { has[$1] = 1 } END { for (w in seen) if (!has[w]) print w }' |
+        while read -r win; do
+            add "$win"
+        done
+}
+
+off() {
+    tmux set -g @sidebar_enabled 0
+    tmux list-panes -a -F '#{pane_id} #{@sidebar}' | awk '$2 == 1 { print $1 }' | xargs -r -n1 tmux kill-pane -t
+}
+
+toggle() {
+    if enabled; then
+        off
+    else
+        tmux set -g @sidebar_enabled 1
+        sync
+    fi
+}
+
+focus() {
+    local pane
+    if ! enabled; then
+        tmux set -g @sidebar_enabled 1
+        sync
+    fi
+    pane=$(sidebar_of "$1")
+    [[ -n $pane ]] && tmux select-pane -t "$pane" \; send-keys -t "$pane" r
+}
+
+nav() {
+    tmux select-pane -t "$2" "-$1"
+    if [[ $(tmux display -p -t "$2" '#{@sidebar}') == 1 ]]; then
+        tmux select-pane -t "$2" "-$1"
+    fi
+}
+
+without() {
+    local win=$1 pane
+    shift
+    pane=$(sidebar_of "$win")
+    if [[ -n $pane && $(tmux display -p -t "$win" '#{window_panes}') -gt 1 ]]; then
+        tmux set -g @sidebar_busy 1 \; break-pane -d -s "$pane"
+    else
+        pane=
+    fi
+    "$@"
+    local status=$?
+    # join-pane -f takes the width evenly from every column, so the other panes keep their ratios.
+    if [[ -n $pane ]]; then
+        tmux join-pane -d -fhb -l "$width" -s "$pane" -t "$win"
+        tmux set -gu @sidebar_busy
+    fi
+    return $status
+}
+
+even_all() {
+    local p
+    for p in $(tmux list-panes -t "$1" -F '#{pane_id}'); do
+        tmux select-layout -E -t "$p"
+    done
+}
+
+tidy() {
+    local pane win
+    busy && return
+    tmux list-panes -a -F '#{window_id} #{window_panes} #{@sidebar}' |
+        awk '$2 == 1 && $3 == 1 { print $1 }' |
+        xargs -r -n1 tmux kill-window -t
+    # A layout change or a moved pane can leave a sidebar away from the left edge.
+    # resize-pane and join-pane unzoom, so leave a zoomed window alone.
+    tmux list-panes -a -F '#{pane_id} #{window_id} #{@sidebar} #{window_zoomed_flag} #{pane_at_left}#{pane_at_top}#{pane_at_bottom} #{pane_width}' |
+        awk '$3 == 1 && $4 == 0 { print $1, $2, $5, $6 }' |
+        while read -r pane win docked w; do
+            if [[ $docked != 111 ]]; then
+                tmux set -g @sidebar_busy 1 \; break-pane -d -s "$pane" \; join-pane -d -fhb -l "$width" -s "$pane" -t "$win"
+                tmux set -gu @sidebar_busy
+            elif [[ $w != "$width" ]]; then
+                tmux resize-pane -t "$pane" -x "$width"
+            fi
+        done
+    sync
+}
+
+wake() {
+    tmux list-panes -a -F '#{pane_id} #{@sidebar} #{window_active} #{session_attached}' |
+        awk '$2 == 1 && $3 == 1 && $4 > 0 { print $1 }' |
+        xargs -r -I{} tmux send-keys -t {} r
+}
+
+restore() {
+    local save=$1 target
+    [[ -n $save ]] || save=$(source ~/.config/tmux/plugins/tmux-resurrect/scripts/helpers.sh && last_resurrect_file)
+    if [[ -r $save ]]; then
+        awk -F'\t' '$1 == "pane" && $7 == "agents" { print $2 ":" $3 "." $6 }' "$save" |
+            while read -r target; do
+                tmux respawn-pane -k -t "$target" "$ui" && mark "$(tmux display -p -t "$target" '#{pane_id}')"
+            done
+    fi
+    tmux set -g @sidebar_enabled 1
+    sync
+}
+
+case $1 in
+sync) sync ;;
+add) add "$2" ;;
+toggle) toggle ;;
+off) off ;;
+focus) focus "$2" ;;
+nav) nav "$2" "$3" ;;
+even) without "$2" even_all "$2" ;;
+without) without "${@:2}" ;;
+tidy) tidy ;;
+wake) wake ;;
+restore) restore "$2" ;;
+*)
+    echo "Usage: tmux-sidebar sync|add|toggle|off|focus|nav|even|without|tidy|wake|restore [args]" >&2
+    exit 1
+    ;;
+esac
+exit 0

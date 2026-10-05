@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Pick a git worktree of the repo in $PWD, or type a branch name to create one,
+# then open it in a tmux window named after the worktree directory. ctrl-x removes one.
+
+fail() {
+    echo "$1"
+    read -rsn1 -p "Press any key to close."
+    exit 1
+}
+
+git rev-parse --show-toplevel >/dev/null 2>&1 || fail "Not a git repository: $PWD"
+main=$(git worktree list --porcelain | awk 'NR == 1 { print $2 }')
+repo=$(basename "$main")
+
+confirm() {
+    local answer
+    read -rp "$1 [y/N] " answer
+    [[ $answer == [yY] ]]
+}
+
+# Windows in this session whose panes are all inside the path, not counting sidebars.
+windows_in() {
+    tmux list-panes -s -F '#{window_id}	#{@sidebar}	#{pane_current_path}' |
+        awk -F'\t' -v p="$1" '$2 != 1 {
+            total[$1]++
+            if ($3 == p || index($3, p "/") == 1) inside[$1]++
+        } END { for (w in total) if (inside[w] == total[w]) print w }'
+}
+
+open_window() {
+    local path=$1 win
+    win=$(tmux list-panes -s -F '#{window_active}	#{window_id}	#{@sidebar}	#{pane_current_path}' |
+        awk -F'\t' -v p="$path" '$3 != 1 && ($4 == p || index($4, p "/") == 1) { print $1, $2 }' |
+        sort -r | awk 'NR == 1 { print $2 }')
+    if [[ -n $win ]]; then
+        tmux select-window -t "$win"
+    else
+        tmux new-window -n "$(basename "$path")" -c "$path"
+    fi
+}
+
+create() {
+    local branch=$1 path
+    path="$HOME/.worktrees/$repo/${branch//\//-}"
+    if git show-ref --verify --quiet "refs/heads/$branch" ||
+        git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+        git worktree add "$path" "$branch" || fail ""
+    else
+        git worktree add -b "$branch" "$path" || fail ""
+    fi
+    open_window "$path"
+}
+
+remove() {
+    local path=$1 windows
+    [[ $path == "$main" ]] && fail "The main worktree cannot be removed."
+    windows=$(windows_in "$path")
+    echo "Remove worktree $path"
+    [[ -n $windows ]] && echo "and close the $(wc -w <<<"$windows") tmux window(s) in it."
+    confirm "Remove?" || exit 0
+    if ! git worktree remove "$path"; then
+        confirm "Force the removal? Uncommitted changes in it will be lost." || exit 0
+        git worktree remove --force "$path" || fail ""
+    fi
+    for w in $windows; do
+        tmux kill-window -t "$w"
+    done
+}
+
+out=$(git worktree list | fzf --reverse --print-query --expect=alt-enter,ctrl-x \
+    --prompt "worktree> " --header "enter: open or create · alt-enter: create from typed name · ctrl-x: remove")
+[[ $? == 130 ]] && exit 0
+
+{ read -r query; read -r key; read -r selected; } <<<"$out"
+
+if [[ $key == ctrl-x ]]; then
+    [[ -n $selected ]] && remove "${selected%% *}"
+elif [[ -n $selected && $key != alt-enter ]]; then
+    open_window "${selected%% *}"
+elif [[ -n $query ]]; then
+    create "$query"
+fi
