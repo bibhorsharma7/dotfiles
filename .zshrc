@@ -104,6 +104,8 @@ source $ZSH/oh-my-zsh.sh
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 alias ls='ls --group-directories-first --color=tty'
 alias rgf='rg --files | rg'
+alias ta='tmux a'
+alias oc='opencode'
 
 # For electron applications
 export ELECTRON_OZONE_PLATFORM_HINT=auto
