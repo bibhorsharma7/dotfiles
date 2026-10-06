@@ -4,26 +4,10 @@
 # can be the terminal, so never read stdin when the event argument is set.
 # Stay silent: Claude Code adds the stdout of some hooks to the model context.
 #
-#   tmux-agent-state --summary   recount the status-bar summary
 #   tmux-agent-state --save      resurrect post-save hook: record each agent's resume command,
 #                                and keep the session order
 #   tmux-agent-state --restore   resurrect post-restore hook: start those commands again
 #   tmux-agent-state --install   add the Claude Code hooks to its settings.json
-
-summary() {
-    local s
-    s=$(tmux list-panes -a -F '#{@agent_state} #{pane_current_command}' | awk '
-        $2 != "claude" && $2 != "pi" { next }
-        $1 == "waiting" { w++ }
-        $1 == "working" { r++ }
-        $1 == "idle"    { i++ }
-        END {
-            if (w) printf "#[fg=#eb6f92]● %d ", w
-            if (r) printf "#[fg=#f6c177]● %d ", r
-            if (i) printf "#[fg=#9ccfd8]● %d ", i
-        }')
-    tmux set -g @agent_summary "$s" \; refresh-client -S 2>/dev/null
-}
 
 save_file() {
     source ~/.config/tmux/plugins/tmux-resurrect/scripts/helpers.sh
@@ -59,10 +43,6 @@ case $1 in
 --install)
     install && echo "Added the tmux-agent-state hooks to ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
     exit
-    ;;
---summary)
-    summary
-    exit 0
     ;;
 --save)
     save=$(save_file)
@@ -185,6 +165,4 @@ else
         tmux set -u "${pane[@]}" "$option"
     done
 fi
-
-summary
 exit 0

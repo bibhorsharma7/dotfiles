@@ -169,7 +169,6 @@ def main(scr):
 
     cursor = None
     top = 0
-    agents_seen = None
     while True:
         sessions, me = poll()
         if me is None:
@@ -179,11 +178,6 @@ def main(scr):
         if not me["visible"]:
             scr.getch()
             continue
-
-        agents = sorted((p["agent"]["pane"], p["agent"]["state"]) for s in sessions for p in s["panes"] if p["agent"])
-        if agents != agents_seen:
-            subprocess.run([os.path.expanduser("~/.local/bin/tmux-agent-state"), "--summary"])
-            agents_seen = agents
 
         rows = build_rows(sessions, me)
         current = next((i for i, r in enumerate(rows) if r.get("current")), 0)
