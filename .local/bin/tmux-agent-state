@@ -5,7 +5,8 @@
 # Stay silent: Claude Code adds the stdout of some hooks to the model context.
 #
 #   tmux-agent-state --summary   recount the status-bar summary
-#   tmux-agent-state --save      resurrect post-save hook: record each agent's resume command
+#   tmux-agent-state --save      resurrect post-save hook: record each agent's resume command,
+#                                and keep the session order
 #   tmux-agent-state --restore   resurrect post-restore hook: start those commands again
 #   tmux-agent-state --install   add the Claude Code hooks to its settings.json
 
@@ -24,9 +25,9 @@ summary() {
     tmux set -g @agent_summary "$s" \; refresh-client -S 2>/dev/null
 }
 
-agents_file() {
+save_file() {
     source ~/.config/tmux/plugins/tmux-resurrect/scripts/helpers.sh
-    echo "$(readlink -f "$(last_resurrect_file)").agents"
+    readlink -f "$(last_resurrect_file)"
 }
 
 install() {
@@ -64,12 +65,23 @@ case $1 in
     exit 0
     ;;
 --save)
+    save=$(save_file)
     tmux list-panes -a -F '#{session_name}	#{window_index}	#{pane_index}	#{pane_current_command}	#{@agent_resume_cmd}' |
-        awk -F'\t' '($4 == "claude" || $4 == "pi") && $5 != "" { print $1 ":" $2 "." $3 "\t" $5 }' >"$(agents_file)"
+        awk -F'\t' '($4 == "claude" || $4 == "pi") && $5 != "" { print $1 ":" $2 "." $3 "\t" $5 }' >"$save.agents"
+    # resurrect lists panes by session name, and its restore creates the sessions in that
+    # order. Sorting by session ID keeps the order of prefix+w.
+    tmp=$(mktemp) || exit 0
+    {
+        tmux list-sessions -F '#{session_id}	#{session_name}' |
+            awk -F'\t' 'NR == FNR { id[$2] = substr($1, 2); next } $1 == "pane" { print id[$2] "\t" $0 }' - "$save" |
+            sort -s -t$'\t' -k1,1n | cut -f2-
+        grep -v '^pane' "$save"
+    } >"$tmp" && cat "$tmp" >"$save"
+    rm -f "$tmp"
     exit 0
     ;;
 --restore)
-    file=$(agents_file)
+    file=$(save_file).agents
     [[ -r $file ]] || exit 0
     while IFS=$'\t' read -r target cmd; do
         case $(tmux display -p -t "$target" '#{pane_current_command}' 2>/dev/null) in

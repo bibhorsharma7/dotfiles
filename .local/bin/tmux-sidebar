@@ -146,7 +146,7 @@ restore() {
             done
     fi
     tmux set -g @sidebar_enabled 1
-    sync
+    tidy
 }
 
 case $1 in
