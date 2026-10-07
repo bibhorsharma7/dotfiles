@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Pick a git worktree of the repo in $PWD, or type a branch name to create one,
-# then open it in a tmux window named after the worktree directory. ctrl-x removes one.
+# Pick a git worktree of the repo in $PWD and open it, or type a branch name and press alt-enter
+# to create one from a base branch. Its tmux window is named after the worktree directory.
+# ctrl-x removes a worktree, and its branch if it is merged.
 
 fail() {
     echo "$1"
@@ -9,8 +10,7 @@ fail() {
 }
 
 git rev-parse --show-toplevel >/dev/null 2>&1 || fail "Not a git repository: $PWD"
-main=$(git worktree list --porcelain | awk 'NR == 1 { print $2 }')
-repo=$(basename "$main")
+repo=$(basename "$(git worktree list --porcelain | awk 'NR == 1 { print $2 }')")
 
 confirm() {
     local answer
@@ -39,44 +39,59 @@ open_window() {
     fi
 }
 
+# The current branch comes first, so Enter takes it.
+pick_base() {
+    local current
+    current=$(git branch --show-current)
+    current=${current:-HEAD}
+    { echo "$current"; git for-each-ref --format='%(refname:short)' refs/heads refs/remotes; } |
+        grep -v '/HEAD$' | awk '!seen[$0]++' |
+        fzf --reverse --prompt "base for $1> "
+}
+
 create() {
-    local branch=$1 path
+    local branch=$1 base path
     path="$HOME/.worktrees/$repo/${branch//\//-}"
     if git show-ref --verify --quiet "refs/heads/$branch" ||
         git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
         git worktree add "$path" "$branch" || fail ""
     else
-        git worktree add -b "$branch" "$path" || fail ""
+        base=$(pick_base "$branch") || exit 0
+        git worktree add -b "$branch" "$path" "$base" || fail ""
     fi
     open_window "$path"
 }
 
 remove() {
-    local path=$1 windows
-    [[ $path == "$main" ]] && fail "The main worktree cannot be removed."
+    local path=$1 windows branch
     windows=$(windows_in "$path")
+    branch=$(git worktree list --porcelain |
+        awk -v p="$path" '$1 == "worktree" { w = $2 } $1 == "branch" && w == p { sub("refs/heads/", "", $2); print $2 }')
     echo "Remove worktree $path"
-    [[ -n $windows ]] && echo "and close the $(wc -w <<<"$windows") tmux window(s) in it."
+    [[ -n $branch ]] && echo "and branch $branch, if all its commits are merged."
+    [[ -n $windows ]] && echo "Close the $(wc -w <<<"$windows") tmux window(s) in it."
     confirm "Remove?" || exit 0
     if ! git worktree remove "$path"; then
         confirm "Force the removal? Uncommitted changes in it will be lost." || exit 0
         git worktree remove --force "$path" || fail ""
+    fi
+    # -d, not -D: git keeps a branch whose commits are not in HEAD or its upstream.
+    if [[ -n $branch ]] && ! git branch -d "$branch"; then
+        read -rsn1 -p "Kept branch $branch. Press any key to close."
     fi
     for w in $windows; do
         tmux kill-window -t "$w"
     done
 }
 
-out=$(git worktree list | fzf --reverse --print-query --expect=alt-enter,ctrl-x \
-    --prompt "worktree> " --header "enter: open or create · alt-enter: create from typed name · ctrl-x: remove")
+out=$(git worktree list | tail -n +2 | fzf --reverse --print-query --expect=alt-enter,ctrl-x \
+    --prompt "worktree> " --header "enter: open · alt-enter: new from typed name · ctrl-x: remove")
 [[ $? == 130 ]] && exit 0
 
 { read -r query; read -r key; read -r selected; } <<<"$out"
 
-if [[ $key == ctrl-x ]]; then
-    [[ -n $selected ]] && remove "${selected%% *}"
-elif [[ -n $selected && $key != alt-enter ]]; then
-    open_window "${selected%% *}"
-elif [[ -n $query ]]; then
-    create "$query"
-fi
+case $key in
+    alt-enter) [[ -n $query ]] && create "$query" ;;
+    ctrl-x) [[ -n $selected ]] && remove "${selected%% *}" ;;
+    *) [[ -n $selected ]] && open_window "${selected%% *}" ;;
+esac
