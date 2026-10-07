@@ -144,6 +144,7 @@ def draw(scr, rows, me, cursor, top):
 
 def jump(row):
     t = row["target"]
+    leave()
     if row["kind"] == "session":
         tmux("switch-client", "-t", t)
     else:
@@ -151,8 +152,8 @@ def jump(row):
 
 
 def leave():
-    if subprocess.run(["tmux", "last-pane"], capture_output=True).returncode:
-        tmux("select-pane", "-R")
+    if subprocess.run(["tmux", "last-pane", "-t", ME], capture_output=True).returncode:
+        tmux("select-pane", "-t", ME, "-R")
 
 
 def main(scr):
