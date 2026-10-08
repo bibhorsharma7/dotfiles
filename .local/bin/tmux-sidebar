@@ -24,27 +24,24 @@ enabled() {
     [[ $(tmux show -gv @sidebar_enabled 2>/dev/null) == 1 ]]
 }
 
-# Set while without moves a sidebar out of its window and back.
-busy() {
-    [[ $(tmux show -gv @sidebar_busy 2>/dev/null) == 1 ]]
-}
-
 mark() {
     tmux set -p -t "$1" @sidebar 1 \; select-pane -t "$1" -T agents
 }
 
 add() {
     local win=$1 pane
-    enabled && ! busy || return
+    enabled || return
     [[ $(tmux display -p -t "$win" '#{session_name}') != float ]] || return
     [[ -z $(sidebar_of "$win") ]] || return
+    # -fb puts the sidebar first in the pane list. resurrect restores a layout by giving its
+    # slots to panes in list order, so the list must match the screen order.
     pane=$(tmux split-window -d -fhb -l "$width" -t "$win" -P -F '#{pane_id}' "$ui") || return
     mark "$pane"
 }
 
 sync() {
     local win
-    enabled && ! busy || return
+    enabled || return
     tmux list-panes -a -F '#{window_id} #{@sidebar}' |
         awk '{ seen[$1] = 1 } $2 == 1 { has[$1] = 1 } END { for (w in seen) if (!has[w]) print w }' |
         while read -r win; do
@@ -88,17 +85,14 @@ without() {
     shift
     pane=$(sidebar_of "$win")
     if [[ -n $pane && $(tmux display -p -t "$win" '#{window_panes}') -gt 1 ]]; then
-        tmux set -g @sidebar_busy 1 \; break-pane -d -s "$pane"
+        tmux kill-pane -t "$pane"
     else
         pane=
     fi
     "$@"
     local status=$?
-    # join-pane -f takes the width evenly from every column, so the other panes keep their ratios.
-    if [[ -n $pane ]]; then
-        tmux join-pane -d -fhb -l "$width" -s "$pane" -t "$win"
-        tmux set -gu @sidebar_busy
-    fi
+    # split-window -f takes the width evenly from every column, so the other panes keep their ratios.
+    [[ -n $pane ]] && add "$win"
     return $status
 }
 
@@ -110,20 +104,21 @@ even_all() {
 }
 
 tidy() {
-    local pane win
-    busy && return
+    local pane
     tmux list-panes -a -F '#{window_id} #{window_panes} #{@sidebar}' |
         awk '$2 == 1 && $3 == 1 { print $1 }' |
         xargs -r -n1 tmux kill-window -t
     # A layout change or a moved pane can leave a sidebar away from the left edge.
-    # resize-pane and join-pane unzoom, so leave a zoomed window alone.
-    tmux list-panes -a -F '#{pane_id} #{window_id} #{@sidebar} #{window_zoomed_flag} #{pane_at_left}#{pane_at_top}#{pane_at_bottom} #{pane_width}' |
-        awk '$3 == 1 && $4 == 0 { print $1, $2, $5, $6 }' |
-        while read -r pane win docked w; do
+    # resize-pane and kill-pane unzoom, so leave a zoomed window alone.
+    # The sync below adds a new sidebar in place of a killed one.
+    tmux list-panes -a -F '#{pane_id} #{@sidebar} #{window_zoomed_flag} #{pane_at_left}#{pane_at_top}#{pane_at_bottom} #{pane_width} #{window_width}' |
+        awk '$2 == 1 && $3 == 0 { print $1, $4, $5, $6 }' |
+        while read -r pane docked w ww; do
             if [[ $docked != 111 ]]; then
-                tmux set -g @sidebar_busy 1 \; break-pane -d -s "$pane" \; join-pane -d -fhb -l "$width" -s "$pane" -t "$win"
-                tmux set -gu @sidebar_busy
-            elif [[ $w != "$width" ]]; then
+                tmux kill-pane -t "$pane"
+            # resize-pane fires window-layout-changed even when it cannot reach the width,
+            # so a narrow window would run tidy without end.
+            elif [[ $w != "$width" ]] && (( ww > 2 * width )); then
                 tmux resize-pane -t "$pane" -x "$width"
             fi
         done
@@ -148,6 +143,9 @@ restore() {
     tmux set -g @sidebar_enabled 1
     tidy
 }
+
+# Hooks start many of these at once. Without the lock, two can add a sidebar to the same window.
+[[ $1 == nav || $1 == wake ]] || { exec 9<"$0" && flock 9; }
 
 case $1 in
 sync) sync ;;

@@ -10,7 +10,8 @@ fail() {
 }
 
 git rev-parse --show-toplevel >/dev/null 2>&1 || fail "Not a git repository: $PWD"
-repo=$(basename "$(git worktree list --porcelain | awk 'NR == 1 { print $2 }')")
+main=$(git worktree list --porcelain | awk 'NR == 1 { print $2 }')
+repo=$(basename "$main")
 
 confirm() {
     local answer
@@ -71,6 +72,8 @@ remove() {
     [[ -n $branch ]] && echo "and branch $branch, if all its commits are merged."
     [[ -n $windows ]] && echo "Close the $(wc -w <<<"$windows") tmux window(s) in it."
     confirm "Remove?" || exit 0
+    # The popup can start inside the worktree, and git fails in a deleted directory.
+    cd "$main" || fail ""
     if ! git worktree remove "$path"; then
         confirm "Force the removal? Uncommitted changes in it will be lost." || exit 0
         git worktree remove --force "$path" || fail ""

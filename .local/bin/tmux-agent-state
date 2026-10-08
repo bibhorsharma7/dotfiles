@@ -4,8 +4,8 @@
 # can be the terminal, so never read stdin when the event argument is set.
 # Stay silent: Claude Code adds the stdout of some hooks to the model context.
 #
-#   tmux-agent-state --save      resurrect post-save hook: record each agent's resume command,
-#                                and keep the session order
+#   tmux-agent-state --save      resurrect post-save hook: record each agent's resume command
+#   tmux-agent-state --sort <f>  resurrect post-save-layout hook: keep the session order
 #   tmux-agent-state --restore   resurrect post-restore hook: start those commands again
 #   tmux-agent-state --install   add the Claude Code hooks to its settings.json
 
@@ -48,8 +48,12 @@ case $1 in
     save=$(save_file)
     tmux list-panes -a -F '#{session_name}	#{window_index}	#{pane_index}	#{pane_current_command}	#{@agent_resume_cmd}' |
         awk -F'\t' '($4 == "claude" || $4 == "pi") && $5 != "" { print $1 ":" $2 "." $3 "\t" $5 }' >"$save.agents"
+    exit 0
+    ;;
+--sort)
     # resurrect lists panes by session name, and its restore creates the sessions in that
     # order. Sorting by session ID keeps the order of prefix+w.
+    save=$2
     tmp=$(mktemp) || exit 0
     {
         tmux list-sessions -F '#{session_id}	#{session_name}' |
