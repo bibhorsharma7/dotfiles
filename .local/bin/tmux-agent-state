@@ -29,9 +29,11 @@ install() {
         | add("SessionStart"; null)
         | add("UserPromptSubmit"; null)
         | add("PostToolUse"; null)
+        | add("PostToolUseFailure"; null)
         | add("Notification"; "permission_prompt|elicitation_dialog|idle_prompt")
         | add("PermissionDenied"; null)
         | add("Stop"; null)
+        | add("StopFailure"; null)
         | add("SessionEnd"; null)
     ' "$settings" >"$tmp" && cat "$tmp" >"$settings"
     local status=$?
@@ -48,6 +50,10 @@ case $1 in
     save=$(save_file)
     tmux list-panes -a -F '#{session_name}	#{window_index}	#{pane_index}	#{pane_current_command}	#{@agent_resume_cmd}' |
         awk -F'\t' '($4 == "claude" || $4 == "pi") && $5 != "" { print $1 ":" $2 "." $3 "\t" $5 }' >"$save.agents"
+    # resurrect deletes old saves but not these files.
+    for f in "${save%/*}"/*.agents; do
+        [[ -e ${f%.agents} ]] || rm -f "$f"
+    done
     exit 0
     ;;
 --sort)
@@ -125,9 +131,9 @@ pane=(-p -t "$TMUX_PANE")
 get() { tmux show -v "${pane[@]}" "$1" 2>/dev/null; }
 
 case $event in
-    SessionStart | Stop | session_start | agent_settled)
+    SessionStart | Stop | StopFailure | session_start | agent_settled)
         state=idle ;;
-    UserPromptSubmit | PostToolUse | PermissionDenied | agent_start)
+    UserPromptSubmit | PostToolUse | PostToolUseFailure | PermissionDenied | agent_start)
         state=working ;;
     Notification)
         case $notification in
@@ -160,7 +166,7 @@ if [[ -n $state ]]; then
     resume=
     case $agent in
         claude) [[ -n $session ]] && resume="claude --resume $session" ;;
-        pi) [[ -n $session ]] && resume="pi --session $session" ;;
+        pi) [[ -n $session ]] && printf -v resume 'pi --session %q' "$session" ;;
     esac
     tmux set "${pane[@]}" @agent_state "$state" \; set "${pane[@]}" @agent_kind "$agent"
     [[ -n $resume ]] && tmux set "${pane[@]}" @agent_resume_cmd "$resume"

@@ -10,7 +10,7 @@ fail() {
 }
 
 git rev-parse --show-toplevel >/dev/null 2>&1 || fail "Not a git repository: $PWD"
-main=$(git worktree list --porcelain | awk 'NR == 1 { print $2 }')
+main=$(git worktree list --porcelain | sed -n '1s/^worktree //p')
 repo=$(basename "$main")
 
 confirm() {
@@ -67,7 +67,7 @@ remove() {
     local path=$1 windows branch
     windows=$(windows_in "$path")
     branch=$(git worktree list --porcelain |
-        awk -v p="$path" '$1 == "worktree" { w = $2 } $1 == "branch" && w == p { sub("refs/heads/", "", $2); print $2 }')
+        awk -v p="$path" '/^worktree / { w = substr($0, 10) } /^branch / && w == p { print substr($0, 19) }')
     echo "Remove worktree $path"
     [[ -n $branch ]] && echo "and branch $branch, if all its commits are merged."
     [[ -n $windows ]] && echo "Close the $(wc -w <<<"$windows") tmux window(s) in it."
@@ -87,14 +87,18 @@ remove() {
     done
 }
 
-out=$(git worktree list | tail -n +2 | fzf --reverse --print-query --expect=alt-enter,ctrl-x \
+out=$(git worktree list --porcelain |
+    awk '/^worktree / { w = substr($0, 10); b = "" } /^branch / { b = substr($0, 19) } /^detached$/ { b = "(detached)" }
+        /^$/ { print w "\t" b }' |
+    tail -n +2 | fzf --reverse --print-query --expect=alt-enter,ctrl-x \
     --prompt "worktree> " --header "enter: open · alt-enter: new from typed name · ctrl-x: remove")
 [[ $? == 130 ]] && exit 0
 
-{ read -r query; read -r key; read -r selected; } <<<"$out"
+{ read -r query; read -r key; IFS= read -r selected; } <<<"$out"
+selected=${selected%%$'\t'*}
 
 case $key in
     alt-enter) [[ -n $query ]] && create "$query" ;;
-    ctrl-x) [[ -n $selected ]] && remove "${selected%% *}" ;;
-    *) [[ -n $selected ]] && open_window "${selected%% *}" ;;
+    ctrl-x) [[ -n $selected ]] && remove "$selected" ;;
+    *) [[ -n $selected ]] && open_window "$selected" ;;
 esac

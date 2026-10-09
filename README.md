@@ -8,7 +8,7 @@ stow --no-folding .
 
 ## script
 for tmux plugin manager
-```git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm```
+```mkdir -p ~/.config/tmux/plugins && git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm```
 
 ## Claude Code hooks
 The tmux agent sidebar needs Claude Code hooks in `~/.claude/settings.json`.
