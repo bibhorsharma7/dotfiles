@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+# Run a command with a pixel size on the popup terminal. tmux 3.8 gives a popup no pixel
+# size, so a nested tmux client asks for it with CSI 14t. The popup never answers, and
+# while that query is open the client holds each lone Esc for 500 ms.
+import fcntl, os, struct, sys, termios
+
+rows, cols, _, _ = struct.unpack("4H", fcntl.ioctl(0, termios.TIOCGWINSZ, bytes(8)))
+fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack("4H", rows, cols, cols * 10, rows * 20))
+os.execvp(sys.argv[1], sys.argv[1:])
