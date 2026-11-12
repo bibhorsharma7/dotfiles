@@ -85,7 +85,7 @@ source $ZSH/oh-my-zsh.sh
 # if [[ -n $SSH_CONNECTION ]]; then
 #   export EDITOR='vim'
 # else
-#   export EDITOR='nvim'
+export EDITOR='nvim'
 # fi
 
 # Compilation flags
@@ -112,10 +112,9 @@ export ELECTRON_OZONE_PLATFORM_HINT=auto
 
 # for tmux sessionizer
 export PATH=$HOME/.local/bin:$PATH
-alias ts=tmux-sessionizer
+alias ts='tmux-sessionizer'
 
 # bins
 export PATH=$HOME/go/bin:$PATH
 export PATH=$HOME/.cargo/bin:$PATH
 export PATH=$HOME/.bun/bin:$PATH
-export PATH=$HOME/.opencode/bin:$PATH
